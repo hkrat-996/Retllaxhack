@@ -7,7 +7,7 @@ clear
 # Mostrar título grande y colorido
 figlet -c "RetllaxHack" | lolcat
 echo "============================================" | lolcat
-echo "   Herramienta de auditoría básica (v1.0)   " | lolcat
+echo "   Herramienta de auditoría básica (v1.1)   " | lolcat
 echo "    By Axel (Rotllax) - Termux Edition      " | lolcat
 echo "============================================" | lolcat
 echo
@@ -22,20 +22,24 @@ function check_command() {
 
 check_command nmap
 check_command hydra
+check_command figlet
+check_command lolcat
 
 # Menú principal
 menu() {
   echo "Menú Principal:" | lolcat
   echo "1) Escaneo automático de puertos" | lolcat
   echo "2) Ataque de fuerza bruta con Hydra (uso en laboratorio)" | lolcat
-  echo "3) Salir" | lolcat
+  echo "3) Escaneo de vulnerabilidades (Nmap NSE)" | lolcat
+  echo "4) Salir" | lolcat
   echo
   read -p "Elige una opción: " opcion
 
   case $opcion in
     1) scan_ports ;;
     2) hydra_attack ;;
-    3) echo "Adiós." | lolcat; exit 0 ;;
+    3) vuln_scan ;;
+    4) echo "Adiós." | lolcat; exit 0 ;;
     *) echo "Opción no válida" | lolcat; menu ;;
   esac
 }
@@ -93,6 +97,19 @@ hydra_attack() {
   echo
   echo "[OK] Hydra finalizó. Resultados guardados en hydra_result.txt" | lolcat
   echo "Puedes verlos con 'cat hydra_result.txt'." | lolcat
+  echo
+  menu
+}
+
+# Escaneo de vulnerabilidades
+vuln_scan() {
+  read -p "Introduce la IP o dominio a escanear vulnerabilidades: " objetivo
+  echo
+  echo "[*] Escaneando vulnerabilidades conocidas con Nmap NSE..." | lolcat
+  echo "-----------------------------------" | lolcat
+  nmap -sV --script vuln "$objetivo" | lolcat
+  echo
+  echo "[OK] Escaneo de vulnerabilidades completado." | lolcat
   echo
   menu
 }
