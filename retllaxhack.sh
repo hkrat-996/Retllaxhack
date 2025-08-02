@@ -1,225 +1,84 @@
 #!/usr/bin/env bash
 
-# RetllaxHack - Herramienta de auditoría mejorada (v1.3)
+# RetllaxHack Modo Furtivo - Evasión de Firewalls/IDS
+# Técnicas avanzadas de escaneo sigiloso
 
 clear
 
-# Mostrar título grande y colorido
-figlet -c "RetllaxHack" | lolcat
-echo "============================================" | lolcat
-echo "   Herramienta de auditoría básica (v1.3)   " | lolcat
-echo "        Termux Edition - Open Source        " | lolcat
-echo "============================================" | lolcat
-echo
+## Configuración Stealth
+VERSION="2.3-stealth"
+LOG_FILE="ghost_scan.log"
+TOR_PROXY="socks5://127.0.0.1:9050"  # Usar Tor como proxy
 
-# Auto-instalador de dependencias
-function check_command() {
-  command -v "$1" >/dev/null 2>&1 || {
-    echo "[!] '$1' no está instalado." | lolcat
-    read -p "¿Quieres instalarlo ahora? (s/n): " install
-    if [[ "$install" =~ ^[sS]$ ]]; then
-      pkg install -y "$1"
-    else
-      echo "[ERROR] Necesitas '$1' para continuar." | lolcat
-      exit 1
-    fi
-  }
+## Instalación de dependencias furtivas
+function instalar_dependencias() {
+  pkg update -y && pkg install -y nmap torsocks proxychains-ng dnsutils \
+  && echo "[+] Herramientas stealth instaladas" | lolcat
 }
 
-check_command nmap
-check_command hydra
-check_command figlet
-check_command lolcat
-check_command git
-
-# Función para validar IP o dominio (básica)
-function validar_objetivo() {
-  local obj="$1"
-  if [[ -z "$obj" ]]; then
-    echo "[ERROR] No se ingresó ningún objetivo." | lolcat
-    return 1
-  fi
-  if [[ "$obj" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-    IFS='.' read -r -a octetos <<< "$obj"
-    for octeto in "${octetos[@]}"; do
-      if ((octeto > 255)); then
-        echo "[ERROR] IP inválida: octeto $octeto mayor a 255." | lolcat
-        return 1
-      fi
-    done
-    return 0
-  fi
-  if [[ "$obj" =~ ^[a-zA-Z0-9.-]+$ ]]; then
-    return 0
-  fi
-  echo "[ERROR] Objetivo inválido. Debe ser IP o dominio válido." | lolcat
-  return 1
+## Técnicas de Evasión
+function configurar_evasion() {
+  # Randomizar MAC y delay
+  MAC=$(printf "02:%02x:%02x:%02x:%02x:%02x" $((RANDOM%256)) $((RANDOM%256)) \
+       $((RANDOM%256)) $((RANDOM%256)) $((RANDOM%256)))
+  
+  # Configuración de timing aleatorio
+  SCAN_DELAY=$((RANDOM%7+1))  # Delay entre 1-7 segundos
+  PARALLEL_SCANS=$((RANDOM%3+1))  # Escaneos paralelos: 1-3
+  
+  echo "[~] Configurando perfil furtivo..." | lolcat
+  echo "- MAC Aleatoria: $MAC"
+  echo "- Delay: $SCAN_DELAY seg"
+  echo "- Escaneos paralelos: $PARALLEL_SCANS"
 }
 
-# Menú principal
-menu() {
-  echo "Menú Principal:" | lolcat
-  echo "1) Escaneo automático de puertos" | lolcat
-  echo "2) Ataque de fuerza bruta con Hydra (uso en laboratorio)" | lolcat
-  echo "3) Escaneo de vulnerabilidades (Nmap NSE)" | lolcat
-  echo "4) Escaneo global de hosts (varios objetivos)" | lolcat
-  echo "5) Actualizar herramienta desde GitHub" | lolcat
-  echo "6) Salir" | lolcat
-  echo
-  read -p "Elige una opción: " opcion
-
-  case $opcion in
-    1) scan_ports ;;
-    2) hydra_attack ;;
-    3) vuln_scan ;;
-    4) global_scan ;;
-    5) update_tool ;;
-    6) echo "Adiós." | lolcat; exit 0 ;;
-    *) echo "Opción no válida" | lolcat; menu ;;
-  esac
+## Escaneo Furtivo Avanzado
+function escaneo_furtivo() {
+  read -p "Objetivo (IP/Dominio): " objetivo
+  
+  configurar_evasion
+  
+  echo "[+] Iniciando escaneo fantasma..." | lolcat
+  nmap -sS -T2 -f --data-length 24 --randomize-hosts --spoof-mac $MAC \
+       --scan-delay ${SCAN_DELAY}s --max-parallelism $PARALLEL_SCANS \
+       --badsum -D RND:5 $objetivo -oN "ghost_scan_$objetivo.txt" | lolcat
 }
 
-# Escaneo de puertos (solo top 1000)
-scan_ports() {
-  read -p "Introduce la IP o dominio a escanear: " objetivo
-  if ! validar_objetivo "$objetivo"; then
-    menu
-  fi
-
-  echo
-  echo "[*] Escaneo rápido (top 1000 puertos más comunes)..." | lolcat
-  echo "-----------------------------------" | lolcat
-
-  resultado=$(nmap -T3 --top-ports 1000 --open "$objetivo" 2>&1)
-  exit_code=$?
-
-  if [ $exit_code -ne 0 ]; then
-    echo "[ERROR] Nmap falló: $resultado" | lolcat
-    echo
-    menu
-  fi
-
-  echo "$resultado" | lolcat
-
-  abiertos=$(echo "$resultado" | grep -E "^[0-9]+/tcp\s+open" | wc -l)
-
-  if [ "$abiertos" -gt 0 ]; then
-    echo
-    echo "[+] Se detectaron $abiertos puertos abiertos en $objetivo." | lolcat
-  else
-    echo
-    echo "[!] No se detectaron puertos abiertos en el escaneo rápido." | lolcat
-  fi
-  echo
-  menu
+## Fuerza Bruta Fantasma
+function fuerza_bruta_furtiva() {
+  read -p "Objetivo: " objetivo
+  read -p "Servicio: " servicio
+  
+  # Usar proxychains sobre Tor
+  echo "[+] Activando canal encubierto (Tor)..." | lolcat
+  proxychains -q hydra -v -V -L usuarios.txt -P claves.txt \
+              -e ns -t 2 -w $SCAN_DELAY -I $objetivo $servicio | lolcat
 }
 
-# Ataque con Hydra
-hydra_attack() {
-  echo
-  echo "ATENCIÓN: Usa esta opción solo en entornos controlados y con permiso." | lolcat
-  echo
-  read -p "Introduce la IP o dominio objetivo: " objetivo
-  if ! validar_objetivo "$objetivo"; then
-    menu
-  fi
-  read -p "Introduce el servicio (ej: ssh, ftp, http-get): " servicio
-  read -p "Ruta al archivo de usuarios (wordlist): " usuarios
-  read -p "Ruta al archivo de contraseñas (wordlist): " passwords
+## Menú Stealth
+function menu_principal() {
+  while true; do
+    clear
+    figlet -f small "RetllaxHack" | lolcat
+    echo "=== MODO EVASIÓN ===" | lolcat
+    echo "1) Escaneo Fantasma (Stealth)"
+    echo "2) Fuerza Bruta Encubierta"
+    echo "3) Auto-Limpieza de Logs"
+    echo "4) Salir"
+    echo ""
+    read -p "Opción: " opcion
 
-  if [ ! -f "$usuarios" ]; then
-    echo "[!] Archivo de usuarios no encontrado." | lolcat
-    menu
-  fi
-  if [ ! -f "$passwords" ]; then
-    echo "[!] Archivo de contraseñas no encontrado." | lolcat
-    menu
-  fi
-
-  echo
-  echo "[*] Ejecutando Hydra..." | lolcat
-  hydra -L "$usuarios" -P "$passwords" -f -o hydra_result.txt "$objetivo" "$servicio" | lolcat
-  echo
-  echo "[OK] Hydra finalizó. Resultados guardados en hydra_result.txt" | lolcat
-  echo
-  menu
-}
-
-# Escaneo de vulnerabilidades
-vuln_scan() {
-  read -p "Introduce la IP o dominio a escanear vulnerabilidades: " objetivo
-  if ! validar_objetivo "$objetivo"; then
-    menu
-  fi
-  echo
-  echo "[*] Escaneando vulnerabilidades conocidas con Nmap NSE..." | lolcat
-  echo "-----------------------------------" | lolcat
-  nmap -sV --script vuln "$objetivo" | lolcat
-  echo
-  echo "[OK] Escaneo completado." | lolcat
-  echo
-  menu
-}
-
-# Escaneo global (varios objetivos)
-global_scan() {
-  echo
-  echo "[*] Escaneo global (puedes ingresar varias IPs o dominios separados por espacio):" | lolcat
-  read -p "Introduce los objetivos: " objetivos
-
-  if [[ -z "$objetivos" ]]; then
-    echo "[ERROR] No se ingresaron objetivos." | lolcat
-    menu
-  fi
-
-  total=0
-  encontrados=0
-
-  for objetivo in $objetivos; do
-    if validar_objetivo "$objetivo"; then
-      total=$((total+1))
-      echo
-      echo "[*] Escaneando $objetivo..." | lolcat
-      resultado=$(nmap -T3 --top-ports 1000 --open "$objetivo" 2>&1)
-      exit_code=$?
-
-      if [ $exit_code -ne 0 ]; then
-        echo "[ERROR] Nmap falló en $objetivo: $resultado" | lolcat
-        continue
-      fi
-
-      echo "$resultado" | lolcat
-      abiertos=$(echo "$resultado" | grep -E "^[0-9]+/tcp\s+open" | wc -l)
-      if [ "$abiertos" -gt 0 ]; then
-        encontrados=$((encontrados+1))
-        echo "[+] Se detectaron $abiertos puertos abiertos en $objetivo." | lolcat
-      else
-        echo "[-] No se detectaron puertos abiertos en $objetivo." | lolcat
-      fi
-    fi
+    case $opcion in
+      1) escaneo_furtivo ;;
+      2) fuerza_bruta_furtiva ;;
+      3) rm -f ghost_scan* 2>/dev/null ;;
+      4) exit 0 ;;
+      *) echo "Opción inválida"; sleep 1 ;;
+    esac
+    read -p "Enter para continuar..."
   done
-
-  echo
-  echo "[Resumen global]" | lolcat
-  echo "Total hosts escaneados: $total" | lolcat
-  echo "Hosts con puertos abiertos: $encontrados" | lolcat
-  echo
-  menu
 }
 
-# Actualizar herramienta desde GitHub
-update_tool() {
-  echo
-  echo "[*] Guardando cambios locales antes de actualizar..." | lolcat
-  git add . && git commit -m "Cambios locales automáticos" >/dev/null 2>&1
-  echo "[*] Actualizando herramienta desde GitHub..." | lolcat
-  if git pull; then
-    echo "[OK] Herramienta actualizada correctamente." | lolcat
-  else
-    echo "[ERROR] No se pudo actualizar." | lolcat
-  fi
-  echo
-  menu
-}
-
-menu
+## Inicio
+instalar_dependencias
+menu_principal
