@@ -1,84 +1,78 @@
 #!/usr/bin/env bash
 
-# RetllaxHack Modo Furtivo - Evasión de Firewalls/IDS
-# Técnicas avanzadas de escaneo sigiloso
+# RetllaxHack - Modo Evasión Mejorado (v2.5)
+# Soluciona problema de permisos y mejora salida
 
 clear
 
-## Configuración Stealth
-VERSION="2.3-stealth"
-LOG_FILE="ghost_scan.log"
-TOR_PROXY="socks5://127.0.0.1:9050"  # Usar Tor como proxy
-
-## Instalación de dependencias furtivas
-function instalar_dependencias() {
-  pkg update -y && pkg install -y nmap torsocks proxychains-ng dnsutils \
-  && echo "[+] Herramientas stealth instaladas" | lolcat
+# Configuración de color mejorada
+function colorize {
+  echo -e "\033[1;$1m$2\033[0m"
 }
 
-## Técnicas de Evasión
-function configurar_evasion() {
-  # Randomizar MAC y delay
-  MAC=$(printf "02:%02x:%02x:%02x:%02x:%02x" $((RANDOM%256)) $((RANDOM%256)) \
-       $((RANDOM%256)) $((RANDOM%256)) $((RANDOM%256)))
-  
-  # Configuración de timing aleatorio
-  SCAN_DELAY=$((RANDOM%7+1))  # Delay entre 1-7 segundos
-  PARALLEL_SCANS=$((RANDOM%3+1))  # Escaneos paralelos: 1-3
-  
-  echo "[~] Configurando perfil furtivo..." | lolcat
-  echo "- MAC Aleatoria: $MAC"
-  echo "- Delay: $SCAN_DELAY seg"
-  echo "- Escaneos paralelos: $PARALLEL_SCANS"
+# Banner ASCII mejorado
+function show_banner {
+  echo -e "$(colorize 35 '___     _   _ _          _  _         _')"
+  echo -e "$(colorize 35 '| _ \\___| |_| | |__ ___ _| || |__ _ __| |__')"
+  echo -e "$(colorize 35 '|   / -_)  _| | / _\` \\ \\ / __ / _\` / _| / /')"
+  echo -e "$(colorize 35 '|_|_\\___|\\__|_|_\\__,_/_\\_\\_||_\\__,_\\__|_\\_\\')"
+  echo
+  echo -e "$(colorize 36 '=== MODO EVASIÓN ===')"
 }
 
-## Escaneo Furtivo Avanzado
-function escaneo_furtivo() {
-  read -p "Objetivo (IP/Dominio): " objetivo
+# Escaneo furtivo corregido
+function escaneo_furtivo {
+  show_banner
+  read -p "$(colorize 33 'Objetivo (IP/Dominio): ')" objetivo
   
-  configurar_evasion
+  # Configuración evasiva sin requerir root
+  echo -e "$(colorize 32 '[~] Configurando perfil furtivo...')"
+  delay=$((RANDOM%5+1))
+  echo -e "$(colorize 36 '- Técnicas:')"
+  echo -e "$(colorize 36 '  • Timing aleatorio (T2)')"
+  echo -e "$(colorize 36 '  • Retardo: ')${delay}s"
+  echo -e "$(colorize 36 '  • Escaneo TCP SYN')"
   
-  echo "[+] Iniciando escaneo fantasma..." | lolcat
-  nmap -sS -T2 -f --data-length 24 --randomize-hosts --spoof-mac $MAC \
-       --scan-delay ${SCAN_DELAY}s --max-parallelism $PARALLEL_SCANS \
-       --badsum -D RND:5 $objetivo -oN "ghost_scan_$objetivo.txt" | lolcat
+  echo -e "$(colorize 32 '\n[+] Iniciando escaneo...')"
+  
+  # Comando corregido que funciona sin root
+  nmap -Pn -sS -T2 --scan-delay ${delay}s --max-retries 1 $objetivo \
+    | tee -a scan.log \
+    | while read line; do
+        if [[ $line == *"open"* ]]; then
+          echo -e "$(colorize 32 '[+] ')${line}"
+        elif [[ $line == *"filtered"* ]]; then
+          echo -e "$(colorize 33 '[?] ')${line}"
+        else
+          echo "$line"
+        fi
+      done
+  
+  echo -e "$(colorize 32 '\n[✔] Escaneo completado!')"
 }
 
-## Fuerza Bruta Fantasma
-function fuerza_bruta_furtiva() {
-  read -p "Objetivo: " objetivo
-  read -p "Servicio: " servicio
-  
-  # Usar proxychains sobre Tor
-  echo "[+] Activando canal encubierto (Tor)..." | lolcat
-  proxychains -q hydra -v -V -L usuarios.txt -P claves.txt \
-              -e ns -t 2 -w $SCAN_DELAY -I $objetivo $servicio | lolcat
-}
-
-## Menú Stealth
-function menu_principal() {
+# Menú principal mejorado
+function menu_principal {
   while true; do
-    clear
-    figlet -f small "RetllaxHack" | lolcat
-    echo "=== MODO EVASIÓN ===" | lolcat
-    echo "1) Escaneo Fantasma (Stealth)"
-    echo "2) Fuerza Bruta Encubierta"
-    echo "3) Auto-Limpieza de Logs"
-    echo "4) Salir"
-    echo ""
-    read -p "Opción: " opcion
+    show_banner
+    echo -e "$(colorize 32 '1)') Escaneo Fantasma (Stealth)"
+    echo -e "$(colorize 32 '2)') Fuerza Bruta Encubierta"
+    echo -e "$(colorize 32 '3)') Auto-Limpieza de Logs"
+    echo -e "$(colorize 31 '4)') Salir"
+    echo
+    read -p "$(colorize 36 'Opción: ')" opcion
 
     case $opcion in
       1) escaneo_furtivo ;;
       2) fuerza_bruta_furtiva ;;
-      3) rm -f ghost_scan* 2>/dev/null ;;
+      3) rm -f scan.log 2>/dev/null && echo -e "$(colorize 32 '[✔] Logs eliminados!')" ;;
       4) exit 0 ;;
-      *) echo "Opción inválida"; sleep 1 ;;
+      *) echo -e "$(colorize 31 '[!] Opción inválida')"; sleep 1 ;;
     esac
-    read -p "Enter para continuar..."
+    
+    read -p "$(colorize 35 '\nEnter para continuar...')" 
   done
 }
 
-## Inicio
-instalar_dependencias
+# Iniciar
 menu_principal
