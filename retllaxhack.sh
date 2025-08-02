@@ -1,20 +1,28 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# RetllaxHack - Herramienta avanzada by Axel (Rotllax)
+# RetllaxHack - Herramienta de auditoría mejorada (v1.3)
 
 clear
+
+# Mostrar título grande y colorido
 figlet -c "RetllaxHack" | lolcat
 echo "============================================" | lolcat
-echo "   Herramienta de auditoría avanzada (v1.3) " | lolcat
-echo "    By Axel (Rotllax) - Termux Edition      " | lolcat
+echo "   Herramienta de auditoría básica (v1.3)   " | lolcat
+echo "        Termux Edition - Open Source        " | lolcat
 echo "============================================" | lolcat
 echo
 
-# Verificar dependencias
+# Auto-instalador de dependencias
 function check_command() {
   command -v "$1" >/dev/null 2>&1 || {
-    echo "[ERROR] '$1' no está instalado. Por favor instala antes de continuar." | lolcat
-    exit 1
+    echo "[!] '$1' no está instalado." | lolcat
+    read -p "¿Quieres instalarlo ahora? (s/n): " install
+    if [[ "$install" =~ ^[sS]$ ]]; then
+      pkg install -y "$1"
+    else
+      echo "[ERROR] Necesitas '$1' para continuar." | lolcat
+      exit 1
+    fi
   }
 }
 
@@ -22,6 +30,31 @@ check_command nmap
 check_command hydra
 check_command figlet
 check_command lolcat
+check_command git
+
+# Función para validar IP o dominio (básica)
+function validar_objetivo() {
+  local obj="$1"
+  if [[ -z "$obj" ]]; then
+    echo "[ERROR] No se ingresó ningún objetivo." | lolcat
+    return 1
+  fi
+  if [[ "$obj" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+    IFS='.' read -r -a octetos <<< "$obj"
+    for octeto in "${octetos[@]}"; do
+      if ((octeto > 255)); then
+        echo "[ERROR] IP inválida: octeto $octeto mayor a 255." | lolcat
+        return 1
+      fi
+    done
+    return 0
+  fi
+  if [[ "$obj" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+    return 0
+  fi
+  echo "[ERROR] Objetivo inválido. Debe ser IP o dominio válido." | lolcat
+  return 1
+}
 
 # Menú principal
 menu() {
@@ -29,8 +62,9 @@ menu() {
   echo "1) Escaneo automático de puertos" | lolcat
   echo "2) Ataque de fuerza bruta con Hydra (uso en laboratorio)" | lolcat
   echo "3) Escaneo de vulnerabilidades (Nmap NSE)" | lolcat
-  echo "4) Escaneo global de hosts (con lista de dominios o IPs)" | lolcat
-  echo "5) Salir" | lolcat
+  echo "4) Escaneo global de hosts (varios objetivos)" | lolcat
+  echo "5) Actualizar herramienta desde GitHub" | lolcat
+  echo "6) Salir" | lolcat
   echo
   read -p "Elige una opción: " opcion
 
@@ -39,46 +73,65 @@ menu() {
     2) hydra_attack ;;
     3) vuln_scan ;;
     4) global_scan ;;
-    5) echo "Adiós." | lolcat; exit 0 ;;
+    5) update_tool ;;
+    6) echo "Adiós." | lolcat; exit 0 ;;
     *) echo "Opción no válida" | lolcat; menu ;;
   esac
 }
 
-# Escaneo automático de puertos
+# Escaneo de puertos
 scan_ports() {
   read -p "Introduce la IP o dominio a escanear: " objetivo
-  if [[ -z "$objetivo" ]]; then
-    echo "[!] No ingresaste ningún objetivo." | lolcat
+  if ! validar_objetivo "$objetivo"; then
     menu
   fi
-  echo
-  echo "[*] Escaneo rápido (top 1000 puertos)..." | lolcat
-  echo "-----------------------------------" | lolcat
-  nmap -Pn -sV --top-ports 1000 "$objetivo" | lolcat
 
   echo
-  echo "[OK] Escaneo finalizado." | lolcat
+  echo "[*] Escaneo rápido (top 1000 puertos más comunes)..." | lolcat
+  echo "-----------------------------------" | lolcat
+  resultado=$(nmap -T4 --top-ports 1000 --open "$objetivo")
+  echo "$resultado" | lolcat
+
+  abiertos=$(echo "$resultado" | grep -c "open")
+
+  if [ "$abiertos" -gt 0 ]; then
+    echo
+    echo "[+] Se detectaron $abiertos puertos abiertos en $objetivo." | lolcat
+    echo "[*] Lanzando escaneo completo de todos los puertos..." | lolcat
+    echo "-----------------------------------" | lolcat
+    full_result=$(nmap -T4 -p- --open "$objetivo")
+    echo "$full_result" | lolcat
+
+    echo "[Resumen]" | lolcat
+    echo "Host: $objetivo" | lolcat
+    echo "Puertos abiertos detectados (rápido): $abiertos" | lolcat
+  else
+    echo
+    echo "[!] No se detectaron puertos abiertos en el escaneo rápido." | lolcat
+  fi
   echo
   menu
 }
 
-# Fuerza bruta con Hydra
+# Ataque con hydra
 hydra_attack() {
   echo
-  echo "ATENCIÓN: Usa esto solo con permiso o en laboratorio." | lolcat
+  echo "ATENCIÓN: Usa esta opción solo en entornos controlados y con permiso." | lolcat
   echo
-  read -p "IP o dominio objetivo: " objetivo
-  read -p "Servicio (ej: ssh, ftp, http-get): " servicio
-  read -p "Archivo de usuarios (wordlist): " usuarios
-  read -p "Archivo de contraseñas (wordlist): " passwords
-
-  if [ ! -f "$usuarios" ]; then
-    echo "[!] Wordlist de usuarios no encontrada." | lolcat
+  read -p "Introduce la IP o dominio objetivo: " objetivo
+  if ! validar_objetivo "$objetivo"; then
     menu
   fi
+  read -p "Introduce el servicio (ej: ssh, ftp, http-get): " servicio
+  read -p "Ruta al archivo de usuarios (wordlist): " usuarios
+  read -p "Ruta al archivo de contraseñas (wordlist): " passwords
 
+  if [ ! -f "$usuarios" ]; then
+    echo "[!] Archivo de usuarios no encontrado." | lolcat
+    menu
+  fi
   if [ ! -f "$passwords" ]; then
-    echo "[!] Wordlist de contraseñas no encontrada." | lolcat
+    echo "[!] Archivo de contraseñas no encontrado." | lolcat
     menu
   fi
 
@@ -86,67 +139,74 @@ hydra_attack() {
   echo "[*] Ejecutando Hydra..." | lolcat
   hydra -L "$usuarios" -P "$passwords" -f -o hydra_result.txt "$objetivo" "$servicio" | lolcat
   echo
-  echo "[OK] Hydra finalizó. Resultados en hydra_result.txt" | lolcat
+  echo "[OK] Hydra finalizó. Resultados guardados en hydra_result.txt" | lolcat
   echo
   menu
 }
 
-# Escaneo de vulnerabilidades con Nmap NSE
+# Escaneo de vulnerabilidades
 vuln_scan() {
-  read -p "IP o dominio para buscar vulnerabilidades: " objetivo
-  if [[ -z "$objetivo" ]]; then
-    echo "[!] No ingresaste ningún objetivo." | lolcat
+  read -p "Introduce la IP o dominio a escanear vulnerabilidades: " objetivo
+  if ! validar_objetivo "$objetivo"; then
     menu
   fi
   echo
-  echo "[*] Escaneando vulnerabilidades conocidas..." | lolcat
+  echo "[*] Escaneando vulnerabilidades conocidas con Nmap NSE..." | lolcat
   echo "-----------------------------------" | lolcat
-  nmap -Pn -sV --script vuln "$objetivo" | lolcat
+  nmap -sV --script vuln "$objetivo" | lolcat
   echo
   echo "[OK] Escaneo completado." | lolcat
   echo
   menu
 }
 
-# Escaneo global (lista de IPs o dominios)
+# Escaneo global (varios objetivos)
 global_scan() {
-  read -p "Ruta del archivo con IPs o dominios (uno por línea): " lista
-  if [ ! -f "$lista" ]; then
-    echo "[!] Archivo no encontrado." | lolcat
+  echo
+  echo "[*] Escaneo global (puedes ingresar varias IPs o dominios separados por espacio):" | lolcat
+  read -p "Introduce los objetivos: " objetivos
+
+  if [[ -z "$objetivos" ]]; then
+    echo "[ERROR] No se ingresaron objetivos." | lolcat
     menu
   fi
 
-  read -p "¿Guardar resultados? (s/n): " guardar
-  if [[ "$guardar" =~ ^[sS]$ ]]; then
-    read -p "Nombre del archivo para guardar (ej: global_scan.txt): " archivo
-    if [[ -z "$archivo" ]]; then
-      echo "[!] Nombre inválido, no se guardará." | lolcat
-      archivo=""
+  total=0
+  encontrados=0
+
+  for objetivo in $objetivos; do
+    if validar_objetivo "$objetivo"; then
+      total=$((total+1))
+      echo
+      echo "[*] Escaneando $objetivo..." | lolcat
+      resultado=$(nmap -T4 --top-ports 1000 --open "$objetivo")
+      echo "$resultado" | lolcat
+      abiertos=$(echo "$resultado" | grep -c "open")
+      if [ "$abiertos" -gt 0 ]; then
+        encontrados=$((encontrados+1))
+        echo "[+] Se detectaron $abiertos puertos abiertos en $objetivo." | lolcat
+      else
+        echo "[-] No se detectaron puertos abiertos en $objetivo." | lolcat
+      fi
     fi
+  done
+
+  echo
+  echo "[Resumen global]" | lolcat
+  echo "Total hosts escaneados: $total" | lolcat
+  echo "Hosts con puertos abiertos: $encontrados" | lolcat
+  echo
+  menu
+}
+
+# Actualizar herramienta desde GitHub
+update_tool() {
+  echo
+  echo "[*] Actualizando herramienta desde GitHub..." | lolcat
+  if git pull; then
+    echo "[OK] Herramienta actualizada correctamente." | lolcat
   else
-    archivo=""
-  fi
-
-  echo
-  echo "[*] Iniciando escaneo global..." | lolcat
-
-  while read objetivo; do
-    if [[ -z "$objetivo" ]]; then continue; fi
-    echo "-----------------------------------" | lolcat
-    echo "[*] Escaneando $objetivo..." | lolcat
-    if [[ -z "$archivo" ]]; then
-      nmap -Pn -sV --top-ports 1000 "$objetivo" | lolcat
-      nmap -Pn -sV --script vuln "$objetivo" | lolcat
-    else
-      nmap -Pn -sV --top-ports 1000 "$objetivo" | tee -a "$archivo" | lolcat
-      nmap -Pn -sV --script vuln "$objetivo" | tee -a "$archivo" | lolcat
-    fi
-  done < "$lista"
-
-  echo
-  echo "[OK] Escaneo global finalizado." | lolcat
-  if [[ -n "$archivo" ]]; then
-    echo "Resultados guardados en $archivo" | lolcat
+    echo "[ERROR] No se pudo actualizar." | lolcat
   fi
   echo
   menu
