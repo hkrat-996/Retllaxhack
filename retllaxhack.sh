@@ -1,78 +1,77 @@
 #!/usr/bin/env bash
 
-# RetllaxHack - Modo Evasión Mejorado (v2.5)
-# Soluciona problema de permisos y mejora salida
+# RetllaxHack - Modo Evasión Sin Root (v2.7)
+# Versión definitiva para Termux
 
-clear
+# Configuración
+VERSION="2.7"
+LOG_FILE="scan.log"
 
-# Configuración de color mejorada
-function colorize {
-  echo -e "\033[1;$1m$2\033[0m"
+# Colores
+RED='\033[1;31m'
+GREEN='\033[1;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[1;34m'
+PURPLE='\033[1;35m'
+CYAN='\033[1;36m'
+NC='\033[0m'
+
+# Banner
+function show_banner() {
+  clear
+  echo -e "${PURPLE}"
+  echo " ___     _   _ _          _  _         _"
+  echo "| _ \___| |_| | |__ ___ _| || |__ _ __| |__"
+  echo "|   / -_)  _| | / _\` \\ \\ / __ / _\` / _| / /"
+  echo "|_|_\___|\\__|_|_\\__,_/_\\_\\_||_\\__,_\\__|_\\_\\"
+  echo -e "${NC}"
+  echo -e "${BLUE}=== MODO EVASIÓN SIN ROOT ==="
+  echo -e "=== Versión ${VERSION} ===${NC}"
 }
 
-# Banner ASCII mejorado
-function show_banner {
-  echo -e "$(colorize 35 '___     _   _ _          _  _         _')"
-  echo -e "$(colorize 35 '| _ \\___| |_| | |__ ___ _| || |__ _ __| |__')"
-  echo -e "$(colorize 35 '|   / -_)  _| | / _\` \\ \\ / __ / _\` / _| / /')"
-  echo -e "$(colorize 35 '|_|_\\___|\\__|_|_\\__,_/_\\_\\_||_\\__,_\\__|_\\_\\')"
-  echo
-  echo -e "$(colorize 36 '=== MODO EVASIÓN ===')"
-}
-
-# Escaneo furtivo corregido
-function escaneo_furtivo {
+# Escaneo seguro sin root
+function escaneo_seguro() {
   show_banner
-  read -p "$(colorize 33 'Objetivo (IP/Dominio): ')" objetivo
+  read -p "${CYAN}[?] IP/Dominio: ${NC}" target
   
-  # Configuración evasiva sin requerir root
-  echo -e "$(colorize 32 '[~] Configurando perfil furtivo...')"
-  delay=$((RANDOM%5+1))
-  echo -e "$(colorize 36 '- Técnicas:')"
-  echo -e "$(colorize 36 '  • Timing aleatorio (T2)')"
-  echo -e "$(colorize 36 '  • Retardo: ')${delay}s"
-  echo -e "$(colorize 36 '  • Escaneo TCP SYN')"
+  # Configuración adaptativa
+  delay=$((RANDOM%3+2))
+  ports="21,22,80,443,8080,8443" # Puertos comunes
   
-  echo -e "$(colorize 32 '\n[+] Iniciando escaneo...')"
+  echo -e "${YELLOW}[~] Técnicas activadas:${NC}"
+  echo -e "- ${GREEN}Escaneo CONNECT (no SYN)${NC}"
+  echo -e "- ${GREEN}Retardo: ${delay}s${NC}"
+  echo -e "- ${GREEN}Puertos estratégicos${NC}"
   
-  # Comando corregido que funciona sin root
-  nmap -Pn -sS -T2 --scan-delay ${delay}s --max-retries 1 $objetivo \
-    | tee -a scan.log \
-    | while read line; do
-        if [[ $line == *"open"* ]]; then
-          echo -e "$(colorize 32 '[+] ')${line}"
-        elif [[ $line == *"filtered"* ]]; then
-          echo -e "$(colorize 33 '[?] ')${line}"
-        else
-          echo "$line"
-        fi
-      done
+  echo -e "\n${BLUE}[+] Escaneando...${NC}"
+  nmap -Pn -T4 --max-retries 1 --scan-delay ${delay}s -p $ports $target \
+    | tee -a $LOG_FILE \
+    | grep --color -E "open|filtered|closed"
   
-  echo -e "$(colorize 32 '\n[✔] Escaneo completado!')"
+  echo -e "\n${GREEN}[✔] Resultados en ${RED}$LOG_FILE${NC}"
 }
 
-# Menú principal mejorado
-function menu_principal {
+# Menú principal
+function menu() {
   while true; do
     show_banner
-    echo -e "$(colorize 32 '1)') Escaneo Fantasma (Stealth)"
-    echo -e "$(colorize 32 '2)') Fuerza Bruta Encubierta"
-    echo -e "$(colorize 32 '3)') Auto-Limpieza de Logs"
-    echo -e "$(colorize 31 '4)') Salir"
+    echo -e "${GREEN}1) Escaneo Seguro"
+    echo -e "${GREEN}2) Fuerza Bruta (Tor)"
+    echo -e "${GREEN}3) Ver Logs"
+    echo -e "${RED}4) Salir${NC}"
     echo
-    read -p "$(colorize 36 'Opción: ')" opcion
+    read -p "${CYAN}[?] Opción: ${NC}" opt
 
-    case $opcion in
-      1) escaneo_furtivo ;;
-      2) fuerza_bruta_furtiva ;;
-      3) rm -f scan.log 2>/dev/null && echo -e "$(colorize 32 '[✔] Logs eliminados!')" ;;
+    case $opt in
+      1) escaneo_seguro ;;
+      2) echo -e "${YELLOW}Opción deshabilitada en esta versión${NC}" ;;
+      3) [ -f "$LOG_FILE" ] && cat $LOG_FILE || echo -e "${RED}No hay logs${NC}" ;;
       4) exit 0 ;;
-      *) echo -e "$(colorize 31 '[!] Opción inválida')"; sleep 1 ;;
+      *) echo -e "${RED}[!] Opción inválida${NC}"; sleep 1 ;;
     esac
-    
-    read -p "$(colorize 35 '\nEnter para continuar...')" 
+    read -p "${CYAN}[?] Enter para continuar...${NC}"
   done
 }
 
-# Iniciar
-menu_principal
+# Inicio
+menu
