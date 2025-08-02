@@ -1,77 +1,91 @@
 #!/usr/bin/env bash
 
-# RetllaxHack - Modo Evasión Sin Root (v2.7)
-# Versión definitiva para Termux
+# RetllaxHack Pro RGB Edition (v4.0)
+# Efectos de color dinámicos - 100% funcional sin root
 
-# Configuración
-VERSION="2.7"
-LOG_FILE="scan.log"
+# ===== CONFIGURACIÓN RGB =====
+function rgb_effect {
+  case $(($RANDOM % 6)) in
+    0) echo -e "\033[1;31m$1\033[0m";;  # Rojo
+    1) echo -e "\033[1;32m$1\033[0m";;  # Verde
+    2) echo -e "\033[1;33m$1\033[0m";;  # Amarillo
+    3) echo -e "\033[1;34m$1\033[0m";;  # Azul
+    4) echo -e "\033[1;35m$1\033[0m";;  # Magenta
+    5) echo -e "\033[1;36m$1\033[0m";;  # Cyan
+  esac
+}
 
-# Colores
-RED='\033[1;31m'
-GREEN='\033[1;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[1;34m'
-PURPLE='\033[1;35m'
-CYAN='\033[1;36m'
-NC='\033[0m'
-
-# Banner
+# ===== BANNER ANIMADO =====
 function show_banner() {
   clear
-  echo -e "${PURPLE}"
-  echo " ___     _   _ _          _  _         _"
-  echo "| _ \___| |_| | |__ ___ _| || |__ _ __| |__"
-  echo "|   / -_)  _| | / _\` \\ \\ / __ / _\` / _| / /"
-  echo "|_|_\___|\\__|_|_\\__,_/_\\_\\_||_\\__,_\\__|_\\_\\"
-  echo -e "${NC}"
-  echo -e "${BLUE}=== MODO EVASIÓN SIN ROOT ==="
-  echo -e "=== Versión ${VERSION} ===${NC}"
+  rgb_effect "  ____      _   _   _       _     _    _      "
+  rgb_effect " |  _ \ ___| |_| | | | __ _| |__ | | _| |__  "
+  rgb_effect " | |_) / _ \ __| |_| |/ _\` | '_ \| |/ / '_ \ "
+  rgb_effect " |  _ <  __/ |_|  _  | (_| | | | |   <| | | |"
+  rgb_effect " |_| \_\___|\__|_| |_|\__,_|_| |_|_|\_\_| |_|"
+  echo
+  rgb_effect "=== HERRAMIENTA PROFESIONAL DE AUDITORÍA ==="
+  rgb_effect "=========== TERMUX EDITION v4.0 ============"
+  echo
 }
 
-# Escaneo seguro sin root
-function escaneo_seguro() {
+# ===== ESCANEO DINÁMICO RGB =====
+function dynamic_scan() {
   show_banner
-  read -p "${CYAN}[?] IP/Dominio: ${NC}" target
+  read -p "$(rgb_effect "[?] IP/Dominio: ")" target
   
-  # Configuración adaptativa
-  delay=$((RANDOM%3+2))
-  ports="21,22,80,443,8080,8443" # Puertos comunes
+  # Configuración inteligente
+  delay=$((RANDOM%4+2))
+  ports="21,22,80,443,8080,8443,3306,3389"
   
-  echo -e "${YELLOW}[~] Técnicas activadas:${NC}"
-  echo -e "- ${GREEN}Escaneo CONNECT (no SYN)${NC}"
-  echo -e "- ${GREEN}Retardo: ${delay}s${NC}"
-  echo -e "- ${GREEN}Puertos estratégicos${NC}"
+  rgb_effect "[~] Configurando escaneo RGB..."
+  echo -e "$(rgb_effect "• Técnica:") $(rgb_effect "Escaneo CONNECT")"
+  echo -e "$(rgb_effect "• Retardo:") $(rgb_effect "${delay}s")"
+  echo -e "$(rgb_effect "• Puertos:") $(rgb_effect "$ports")"
   
-  echo -e "\n${BLUE}[+] Escaneando...${NC}"
-  nmap -Pn -T4 --max-retries 1 --scan-delay ${delay}s -p $ports $target \
-    | tee -a $LOG_FILE \
-    | grep --color -E "open|filtered|closed"
-  
-  echo -e "\n${GREEN}[✔] Resultados en ${RED}$LOG_FILE${NC}"
+  rgb_effect "\n[+] Iniciando escaneo..."
+  nmap -Pn -T4 --max-retries 1 --scan-delay ${delay}s -p $ports $target | \
+    while read line; do
+      if [[ $line == *"open"* ]]; then
+        rgb_effect "[+] $line"
+      elif [[ $line == *"filtered"* ]]; then
+        rgb_effect "[?] $line"
+      else
+        echo "$line"
+      fi
+    done | tee scan_results.log
+    
+  rgb_effect "\n[✔] Escaneo completado!"
+  rgb_effect "Resultados guardados en scan_results.log"
 }
 
-# Menú principal
-function menu() {
+# ===== MENÚ RGB =====
+function rgb_menu() {
   while true; do
     show_banner
-    echo -e "${GREEN}1) Escaneo Seguro"
-    echo -e "${GREEN}2) Fuerza Bruta (Tor)"
-    echo -e "${GREEN}3) Ver Logs"
-    echo -e "${RED}4) Salir${NC}"
+    rgb_effect "1) Escaneo RGB Dinámico"
+    rgb_effect "2) Ver Resultados"
+    rgb_effect "3) Actualizar Herramienta"
+    rgb_effect "4) Salir"
     echo
-    read -p "${CYAN}[?] Opción: ${NC}" opt
+    read -p "$(rgb_effect "[?] Seleccione una opción: ")" opt
 
     case $opt in
-      1) escaneo_seguro ;;
-      2) echo -e "${YELLOW}Opción deshabilitada en esta versión${NC}" ;;
-      3) [ -f "$LOG_FILE" ] && cat $LOG_FILE || echo -e "${RED}No hay logs${NC}" ;;
+      1) dynamic_scan ;;
+      2) [ -f "scan_results.log" ] && cat scan_results.log || rgb_effect "[!] No hay resultados";;
+      3) curl -sL https://raw.githubusercontent.com/tu_repo/RetllaxHack/main/retllaxhack.sh > update.sh && 
+         chmod +x update.sh && 
+         mv update.sh retllaxhack.sh && 
+         rgb_effect "[✔] Actualización completada!";;
       4) exit 0 ;;
-      *) echo -e "${RED}[!] Opción inválida${NC}"; sleep 1 ;;
+      *) rgb_effect "[!] Opción inválida"; sleep 1 ;;
     esac
-    read -p "${CYAN}[?] Enter para continuar...${NC}"
+    read -p "$(rgb_effect "\nPresione Enter para continuar...")"
   done
 }
 
-# Inicio
-menu
+# ===== INICIO =====
+show_banner
+rgb_effect "[~] Inicializando efectos RGB..."
+sleep 2
+rgb_menu
