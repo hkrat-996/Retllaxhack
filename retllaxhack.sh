@@ -79,7 +79,7 @@ menu() {
   esac
 }
 
-# Escaneo de puertos
+# Escaneo de puertos (solo top 1000)
 scan_ports() {
   read -p "Introduce la IP o dominio a escanear: " objetivo
   if ! validar_objetivo "$objetivo"; then
@@ -89,22 +89,24 @@ scan_ports() {
   echo
   echo "[*] Escaneo rápido (top 1000 puertos más comunes)..." | lolcat
   echo "-----------------------------------" | lolcat
-  resultado=$(nmap -T4 --top-ports 1000 --open "$objetivo")
+
+  resultado=$(nmap -T3 --top-ports 1000 --open "$objetivo" 2>&1)
+  exit_code=$?
+
+  if [ $exit_code -ne 0 ]; then
+    echo "[ERROR] Nmap falló: $resultado" | lolcat
+    echo
+    menu
+  fi
+
   echo "$resultado" | lolcat
 
-  abiertos=$(echo "$resultado" | grep -c "open")
+  # Contar solo líneas con puertos abiertos
+  abiertos=$(echo "$resultado" | grep -E "^[0-9]+/tcp\s+open" | wc -l)
 
   if [ "$abiertos" -gt 0 ]; then
     echo
     echo "[+] Se detectaron $abiertos puertos abiertos en $objetivo." | lolcat
-    echo "[*] Lanzando escaneo completo de todos los puertos..." | lolcat
-    echo "-----------------------------------" | lolcat
-    full_result=$(nmap -T4 -p- --open "$objetivo")
-    echo "$full_result" | lolcat
-
-    echo "[Resumen]" | lolcat
-    echo "Host: $objetivo" | lolcat
-    echo "Puertos abiertos detectados (rápido): $abiertos" | lolcat
   else
     echo
     echo "[!] No se detectaron puertos abiertos en el escaneo rápido." | lolcat
@@ -113,7 +115,7 @@ scan_ports() {
   menu
 }
 
-# Ataque con hydra
+# Ataque con Hydra
 hydra_attack() {
   echo
   echo "ATENCIÓN: Usa esta opción solo en entornos controlados y con permiso." | lolcat
@@ -179,9 +181,16 @@ global_scan() {
       total=$((total+1))
       echo
       echo "[*] Escaneando $objetivo..." | lolcat
-      resultado=$(nmap -T4 --top-ports 1000 --open "$objetivo")
+      resultado=$(nmap -T3 --top-ports 1000 --open "$objetivo" 2>&1)
+      exit_code=$?
+
+      if [ $exit_code -ne 0 ]; then
+        echo "[ERROR] Nmap falló en $objetivo: $resultado" | lolcat
+        continue
+      fi
+
       echo "$resultado" | lolcat
-      abiertos=$(echo "$resultado" | grep -c "open")
+      abiertos=$(echo "$resultado" | grep -E "^[0-9]+/tcp\s+open" | wc -l)
       if [ "$abiertos" -gt 0 ]; then
         encontrados=$((encontrados+1))
         echo "[+] Se detectaron $abiertos puertos abiertos en $objetivo." | lolcat
