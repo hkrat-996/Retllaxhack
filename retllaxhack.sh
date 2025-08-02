@@ -101,7 +101,6 @@ scan_ports() {
 
   echo "$resultado" | lolcat
 
-  # Contar solo líneas con puertos abiertos
   abiertos=$(echo "$resultado" | grep -E "^[0-9]+/tcp\s+open" | wc -l)
 
   if [ "$abiertos" -gt 0 ]; then
@@ -211,6 +210,8 @@ global_scan() {
 # Actualizar herramienta desde GitHub
 update_tool() {
   echo
+  echo "[*] Guardando cambios locales antes de actualizar..." | lolcat
+  git add . && git commit -m "Cambios locales automáticos" >/dev/null 2>&1
   echo "[*] Actualizando herramienta desde GitHub..." | lolcat
   if git pull; then
     echo "[OK] Herramienta actualizada correctamente." | lolcat
