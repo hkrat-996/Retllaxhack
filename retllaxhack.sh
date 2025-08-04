@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 
 # RetllaxHack Shadow + Metasploit (v9.0.1) - Termux (No Root)
-# By Retllax - Escaneo global con Tor y Metasploit integrado
+# GitHub: https://github.com/tu_usuario/RetllaxHack
+# By Retllax - Ethical Hacking Tool
 
-# ===== CONFIGURACIÓN RGB (Icono de RetllaxHack) =====
+# ===== CONFIGURACIÓN RGB =====
 function rgb {
   colors=("196" "40" "214" "39" "200" "226")
   echo -e "\033[38;5;${colors[$RANDOM % 6]}m$1\033[0m"
 }
 
-# ===== BANNER RETLLAXHACK =====
+# ===== BANNER =====
 function show_banner {
   clear
   echo
@@ -27,10 +28,11 @@ function show_banner {
 
 # ===== VERIFICAR DEPENDENCIAS =====
 function check_deps {
-  if ! command -v tor >/dev/null || ! command -v proxychains >/dev/null; then
+  if ! command -v tor >/dev/null || ! command -v proxychains4 >/dev/null; then
     rgb "[~] Instalando Tor y Proxychains..."
     pkg install tor proxychains-ng -y
     tor &
+    sleep 5
   fi
 
   if ! command -v nmap >/dev/null; then
@@ -44,22 +46,24 @@ function check_deps {
   fi
 
   if ! command -v msfconsole >/dev/null; then
-    rgb "[~] Instalando Metasploit (1GB+ de espacio)..."
+    rgb "[~] Instalando Metasploit (Paciente, 1GB aprox)..."
     pkg install unstable-repo metasploit -y
+    rgb "[~] Configurando PostgreSQL..."
     pg_ctl -D $PREFIX/var/lib/postgresql start >/dev/null 2>&1
+    sleep 3
   fi
 }
 
-# ===== ESCANEO GLOBAL (Con Tor) =====
+# ===== ESCANEO GLOBAL (Tor + Nmap) =====
 function global_scan {
-  read -p "$(rgb "[?] IP/Dominio a escanear (ej: google.com): ")" target
+  read -p "$(rgb "[?] IP/Dominio a escanear (ej: scanme.nmap.org): ")" target
   read -p "$(rgb "[?] Puertos (ej: 80,443 o 1-1000): ")" ports
 
   rgb "[~] Escaneando $target (Tor + Proxychains)..."
-  proxychains -q nmap -Pn -sS -T4 --open -p $ports $target -oN retllax_scan.log
+  proxychains4 nmap -Pn -T4 --open --min-parallelism 50 -p $ports $target -oN retllax_scan.log 2>&1
 
   rgb "[~] Buscando vulnerabilidades (CVE)..."
-  proxychains -q nmap -Pn --script vuln -p $(grep "open" retllax_scan.log | awk -F'/' '{print $1}' | tr '\n' ',') $target >> retllax_vulns.log 2>&1
+  proxychains4 nmap -Pn --script vuln -p $(grep "open" retllax_scan.log | awk -F'/' '{print $1}' | tr '\n' ',') $target >> retllax_vulns.log 2>&1
 
   rgb "[✔] Resultados:"
   grep --color "open" retllax_scan.log
@@ -73,7 +77,7 @@ function hydra_attack {
   read -p "$(rgb "[?] Ruta al diccionario: ")" wordlist
 
   rgb "[~] Detectando servicios..."
-  service=$(proxychains -q nmap -p- --open $target | grep "open" | head -n 1 | awk '{print $3}')
+  service=$(proxychains4 nmap -Pn -p- --open $target | grep "open" | head -n 1 | awk '{print $3}')
 
   case $service in
     ssh) port=22 ;;
@@ -83,7 +87,7 @@ function hydra_attack {
   esac
 
   rgb "[~] Atacando $service ($target:$port)..."
-  proxychains -q hydra -l $user -P $wordlist -t 6 -s $port $target $service -o retllax_hydra.log
+  proxychains4 hydra -l $user -P $wordlist -t 6 -s $port $target $service -o retllax_hydra.log
 
   rgb "[+] Resultados:"
   grep --color "login:" retllax_hydra.log
@@ -119,11 +123,11 @@ function metasploit_mod {
       read -p "$(rgb "[?] IP/Rango (ej: 192.168.1.0/24): ")" target
       msfconsole -q -x "use auxiliary/scanner/portscan/tcp; set RHOSTS $target; run; exit"
       ;;
-    *) rgb "[!] Opción inválida";;
+    *) rgb "[!] Opción no válida";;
   esac
 }
 
-# ===== MENÚ RETLLAXHACK =====
+# ===== MENÚ PRINCIPAL =====
 function main_menu {
   check_deps
   while true; do
